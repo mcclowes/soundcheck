@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Background colors - WhatsApp-style warm beige/cream */
+  --background: #f0ebe3;
+  --background-subtle: #e8e3db;
+  --background-muted: #ddd8d0;
+
+  /* Foreground/text colors */
+  --foreground: #1a1a1a;
+  --foreground-muted: #667781;
+  --foreground-light: #8696a0;
+
+  /* Card surfaces - pure white */
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.12);
+
+  /* Primary - music/audio themed purple */
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-light: #ede9fe;
+  --primary-foreground: #ffffff;
+  --primary-glow: rgba(124, 58, 237, 0.15);
+  --primary-border: #5b21b6;
+
+  /* Secondary */
+  --secondary: #54656f;
+  --secondary-foreground: #ffffff;
+
+  /* Muted */
+  --muted: #e9edef;
+  --muted-foreground: #667781;
+
+  /* Accent - Spotify green */
+  --accent: #1db954;
+  --accent-hover: #1ed760;
+  --accent-foreground: #ffffff;
+
+  /* Semantic colors */
+  --success: #00a884;
+  --success-bg: rgba(0, 168, 132, 0.1);
+  --warning: #f7c948;
+  --error: #ea0038;
+  --error-bg: rgba(234, 0, 56, 0.1);
+
+  /* Borders */
+  --border: #e5e7eb;
+  --border-hover: #d1d5db;
+  --input: #f0f2f5;
+  --ring: #7c3aed;
+
+  /* Surface colors */
+  --surface: #f7f8fa;
+  --surface-elevated: #ffffff;
+  --surface-hover: #f0f2f5;
+
+  /* Spacing & sizing */
+  --radius: 0.75rem;
+  --radius-sm: 0.5rem;
+  --radius-lg: 1rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Background colors - deep slate */
+    --background: #111b21;
+    --background-subtle: #1f2c33;
+    --background-muted: #2a3942;
+
+    /* Foreground/text colors */
+    --foreground: #e9edef;
+    --foreground-muted: #8696a0;
+    --foreground-light: #667781;
+
+    /* Card surfaces */
+    --card: #1f2c33;
+    --card-foreground: #e9edef;
+    --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.4);
+
+    /* Primary - brighter purple for dark mode */
+    --primary: #a78bfa;
+    --primary-hover: #c4b5fd;
+    --primary-light: #2e1065;
+    --primary-foreground: #111b21;
+    --primary-glow: rgba(167, 139, 250, 0.2);
+    --primary-border: #8b5cf6;
+
+    /* Secondary */
+    --secondary: #8696a0;
+    --secondary-foreground: #111b21;
+
+    /* Muted */
+    --muted: #2a3942;
+    --muted-foreground: #8696a0;
+
+    /* Accent - Spotify green */
+    --accent: #1db954;
+    --accent-hover: #1ed760;
+    --accent-foreground: #111b21;
+
+    /* Semantic colors */
+    --success: #00a884;
+    --success-bg: rgba(0, 168, 132, 0.15);
+    --warning: #f7c948;
+    --error: #f15c6d;
+    --error-bg: rgba(241, 92, 109, 0.15);
+
+    /* Borders */
+    --border: #2a3942;
+    --border-hover: #3b4a54;
+    --input: #2a3942;
+    --ring: #a78bfa;
+
+    /* Surface colors */
+    --surface: #1f2c33;
+    --surface-elevated: #2a3942;
+    --surface-hover: #3b4a54;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-background-subtle: var(--background-subtle);
+  --color-background-muted: var(--background-muted);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-light: var(--primary-light);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-error: var(--error);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --font-sans: var(--font-inter);
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Keyframe animations */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes soundWave {
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

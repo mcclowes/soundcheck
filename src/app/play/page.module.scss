@@ -1,0 +1,100 @@
+.authContainer {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.authCard {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  padding: 2.5rem;
+  max-width: 24rem;
+  width: 100%;
+  text-align: center;
+
+  h1 {
+    font-family: var(--font-pirata), serif;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: var(--foreground);
+  }
+
+  .subtitle {
+    color: var(--foreground-muted);
+    margin-bottom: 2rem;
+  }
+}
+
+.spotifyIcon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+}
+
+.spotifyDescription {
+  color: var(--foreground-muted);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.spotifyButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 2rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.spotifyNote {
+  margin-top: 1rem;
+  font-size: 0.75rem;
+  color: var(--foreground-light);
+}
+
+.configWarning {
+  background: var(--warning);
+  background: rgba(247, 201, 72, 0.15);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  max-width: 24rem;
+
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    font-size: 0.875rem;
+    color: var(--foreground-muted);
+  }
+}

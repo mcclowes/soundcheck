@@ -1,52 +1,60 @@
 import Link from "next/link";
+import styles from "./page.module.scss";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-600 to-purple-700">
-      <main className="max-w-4xl mx-auto px-6 py-16">
-        <div className="text-center text-white mb-16">
-          <h1 className="text-6xl font-bold mb-4">Soundcheck</h1>
-          <p className="text-xl opacity-90">The AI-powered music pop quiz</p>
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className={styles.logo}>
+          <div className={styles.soundBars}>
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          Soundcheck
+        </div>
+      </header>
+
+      <main className={styles.main}>
+        <div className={styles.hero}>
+          <h1>Soundcheck</h1>
+          <p>The AI-powered music pop quiz</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8 mb-12">
-          <div className="grid md:grid-cols-3 gap-8 mb-8">
-            <div className="text-center">
-              <div className="text-4xl mb-3">🎵</div>
-              <h3 className="font-bold mb-2">Listen</h3>
-              <p className="text-gray-600 text-sm">
-                Hear 5-second snippets of songs from themed rounds
-              </p>
+        <div className={styles.card}>
+          <div className={styles.features}>
+            <div className={styles.feature}>
+              <div className={styles.icon}>🎵</div>
+              <h3>Listen</h3>
+              <p>Hear 5-second snippets of songs from themed rounds</p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl mb-3">🎤</div>
-              <h3 className="font-bold mb-2">Guess</h3>
-              <p className="text-gray-600 text-sm">
-                Tell the AI host the song title or artist name
-              </p>
+            <div className={styles.feature}>
+              <div className={styles.icon}>🎤</div>
+              <h3>Guess</h3>
+              <p>Tell the AI host the song title or artist name</p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl mb-3">🏆</div>
-              <h3 className="font-bold mb-2">Score</h3>
-              <p className="text-gray-600 text-sm">
-                Race through 10 songs and see how many you know
-              </p>
+            <div className={styles.feature}>
+              <div className={styles.icon}>🏆</div>
+              <h3>Score</h3>
+              <p>Race through 10 songs and see how many you know</p>
             </div>
           </div>
 
-          <div className="text-center">
-            <Link
-              href="/play"
-              className="inline-block px-8 py-4 bg-indigo-600 text-white text-lg font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-            >
+          <div className={styles.cta}>
+            <Link href="/play" className={styles.playButton}>
               Start playing
+              <span>→</span>
             </Link>
           </div>
         </div>
 
-        <div className="text-center text-white/80 text-sm">
-          <p>Powered by ElevenLabs conversational AI and Spotify</p>
-        </div>
+        <footer className={styles.footer}>
+          <p>
+            Powered by <a href="https://elevenlabs.io">ElevenLabs</a> and{" "}
+            <a href="https://spotify.com">Spotify</a>
+          </p>
+        </footer>
       </main>
     </div>
   );
