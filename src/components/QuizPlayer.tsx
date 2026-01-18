@@ -4,7 +4,10 @@ import { useState, useCallback, useRef } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { useSpotify } from "@/lib/contexts/SpotifyContext";
 import { TOOL_NAMES, SONGS_PER_ROUND, MAX_REPLAYS } from "@/lib/config/constants";
+import { parseIntSafe } from "@/lib/utils/parsing";
 import styles from "./QuizPlayer.module.scss";
+
+const MAX_MESSAGE_HISTORY = 50;
 
 type Message = {
   role: "user" | "agent";
@@ -32,13 +35,15 @@ type QuizResults = {
 type QuizPlayerProps = {
   agentId: string;
   theme: string;
+  onLogout?: () => void;
 };
 
-export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
+export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
   const { playSnippet, stopPlayback, state: spotifyState } = useSpotify();
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStarted, setIsStarted] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
   const [progress, setProgress] = useState<QuizProgress>({
     currentScore: 0,
     songsCompleted: 0,
@@ -111,8 +116,8 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
       }) => {
         setProgress((prev) => ({
           ...prev,
-          currentScore: parseInt(params.current_score, 10),
-          songsCompleted: parseInt(params.songs_completed, 10),
+          currentScore: parseIntSafe(params.current_score, prev.currentScore),
+          songsCompleted: parseIntSafe(params.songs_completed, prev.songsCompleted),
           lastAnswerCorrect: params.last_answer_correct === "true",
         }));
         return "Score updated";
@@ -125,9 +130,9 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
         theme: string;
       }) => {
         setResults({
-          finalScore: parseInt(params.final_score, 10),
-          correctCount: parseInt(params.correct_count, 10),
-          totalSongs: parseInt(params.total_songs, 10),
+          finalScore: parseIntSafe(params.final_score, 0),
+          correctCount: parseIntSafe(params.correct_count, 0),
+          totalSongs: parseIntSafe(params.total_songs, SONGS_PER_ROUND),
           theme: params.theme,
         });
         setShowResults(true);
@@ -135,13 +140,20 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
       },
     },
     onMessage: (message) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: message.source === "user" ? "user" : "agent",
-          content: message.message,
-        },
-      ]);
+      setMessages((prev) => {
+        const newMessages = [
+          ...prev,
+          {
+            role: message.source === "user" ? "user" : "agent",
+            content: message.message,
+          } as Message,
+        ];
+        // Limit message history to prevent memory leaks
+        if (newMessages.length > MAX_MESSAGE_HISTORY) {
+          return newMessages.slice(-MAX_MESSAGE_HISTORY);
+        }
+        return newMessages;
+      });
     },
     onError: (error) => {
       console.error("Conversation error:", error);
@@ -149,21 +161,46 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
   });
 
   const handleStart = useCallback(async () => {
+    setStartError(null);
+
     if (!spotifyState.isReady) {
-      alert("Spotify player not ready. Please make sure you're logged in.");
+      setStartError("Spotify player not ready. Please make sure you're logged in.");
       return;
     }
-    setIsStarted(true);
-    await conversation.startSession({
-      agentId,
-      connectionType: "websocket",
-    });
+
+    try {
+      setIsStarted(true);
+      await conversation.startSession({
+        agentId,
+        connectionType: "websocket",
+      });
+    } catch (error) {
+      setIsStarted(false);
+      setStartError(
+        `Failed to start quiz: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
+    }
   }, [conversation, agentId, spotifyState.isReady]);
 
   const handleEnd = useCallback(async () => {
     await conversation.endSession();
     setIsStarted(false);
   }, [conversation]);
+
+  const handlePlayAgain = useCallback(() => {
+    // Reset state instead of full page reload
+    setMessages([]);
+    setProgress({
+      currentScore: 0,
+      songsCompleted: 0,
+      lastAnswerCorrect: null,
+      currentSong: null,
+      replaysUsed: 0,
+    });
+    setResults(null);
+    setShowResults(false);
+    replaysRef.current = {};
+  }, []);
 
   if (showResults && results) {
     return (
@@ -180,9 +217,16 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
             Final Score: <span>{results.finalScore}</span>
           </p>
 
-          <button onClick={() => window.location.reload()} className={styles.playAgainButton}>
-            Play Again
-          </button>
+          <div className={styles.resultsActions}>
+            <button onClick={handlePlayAgain} className={styles.playAgainButton}>
+              Play Again
+            </button>
+            {onLogout && (
+              <button onClick={onLogout} className={styles.logoutButton}>
+                Log Out
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -242,7 +286,8 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
               Listen to song snippets and guess the title or artist. You can replay each snippet up
               to {MAX_REPLAYS} times.
             </p>
-            {!spotifyState.isReady && (
+            {startError && <p className={styles.errorText}>{startError}</p>}
+            {!spotifyState.isReady && !startError && (
               <p className={styles.warningText}>
                 {spotifyState.error || "Connecting to Spotify..."}
               </p>
@@ -254,6 +299,11 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
             >
               Start Quiz
             </button>
+            {onLogout && (
+              <button onClick={onLogout} className={styles.logoutButtonSecondary}>
+                Log Out
+              </button>
+            )}
           </div>
         ) : (
           <div className={styles.quizContent}>

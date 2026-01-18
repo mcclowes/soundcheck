@@ -142,6 +142,12 @@
   margin-bottom: 1rem;
 }
 
+.errorText {
+  color: var(--error);
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
 .startButton {
   display: inline-flex;
   align-items: center;
@@ -361,6 +367,12 @@
   }
 }
 
+.resultsActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .playAgainButton {
   padding: 0.75rem 1.5rem;
   background: var(--primary);
@@ -374,5 +386,39 @@
 
   &:hover {
     background: var(--primary-hover);
+  }
+}
+
+.logoutButton {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--foreground-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+  }
+}
+
+.logoutButtonSecondary {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  color: var(--foreground-light);
+  font-size: 0.875rem;
+  font-weight: 400;
+  border: none;
+  cursor: pointer;
+  transition: color 0.15s;
+
+  &:hover {
+    color: var(--foreground-muted);
+    text-decoration: underline;
   }
 }

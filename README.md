@@ -53,6 +53,7 @@ An AI-powered music pop quiz game. Listen to song snippets, guess the title or a
    - `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` - Your ElevenLabs agent ID
    - `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` - Spotify app client ID
    - `SPOTIFY_CLIENT_SECRET` - Spotify app client secret
+   - `NEXT_PUBLIC_SPOTIFY_REDIRECT_URI` - OAuth callback URL (default: http://localhost:3000/callback)
 
 4. Start the development server:
 
@@ -74,7 +75,7 @@ An AI-powered music pop quiz game. Listen to song snippets, guess the title or a
 - [Next.js](https://nextjs.org) - React framework
 - [ElevenLabs](https://elevenlabs.io) - Conversational AI
 - [Spotify Web Playback SDK](https://developer.spotify.com/documentation/web-playback-sdk) - Music playback
-- [Tailwind CSS](https://tailwindcss.com) - Styling
+- [SCSS modules](https://sass-lang.com) - Styling
 - [TypeScript](https://www.typescriptlang.org) - Type safety
 
 ## License

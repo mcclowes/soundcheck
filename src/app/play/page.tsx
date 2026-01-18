@@ -1,43 +1,36 @@
 "use client";
 
-import { useState, useMemo, useSyncExternalStore, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SpotifyProvider } from "@/lib/contexts/SpotifyContext";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { ELEVENLABS_AGENT_ID } from "@/lib/config/constants";
+import { handleOAuthCallback, getStoredToken, clearToken } from "@/lib/utils/token-storage";
 import styles from "./page.module.scss";
 
-function getTokenFromHash(): string | null {
-  if (typeof window === "undefined") return null;
-  const hash = window.location.hash;
-  if (!hash) return null;
-  const params = new URLSearchParams(hash.substring(1));
-  const token = params.get("access_token");
-  if (token) {
-    window.history.replaceState(null, "", window.location.pathname);
-  }
-  return token;
-}
+export default function PlayPage() {
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-function useHashToken() {
-  const subscribe = useCallback((callback: () => void) => {
-    window.addEventListener("hashchange", callback);
-    return () => window.removeEventListener("hashchange", callback);
+  // Handle OAuth callback and check for stored token on mount
+  useEffect(() => {
+    // First, check if this is an OAuth callback (has hash with token)
+    const callbackToken = handleOAuthCallback();
+    if (callbackToken) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Intentional: initializing state from sessionStorage on mount
+      setAccessToken(callbackToken.accessToken);
+      setIsLoading(false);
+      return;
+    }
+
+    // Otherwise, check for existing stored token
+    const storedToken = getStoredToken();
+    if (storedToken) {
+      setAccessToken(storedToken.accessToken);
+    }
+    setIsLoading(false);
   }, []);
 
-  const getSnapshot = useCallback(() => getTokenFromHash(), []);
-  const getServerSnapshot = useCallback(() => null, []);
-
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-}
-
-export default function PlayPage() {
-  const hashToken = useHashToken();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [manualToken, _setManualToken] = useState<string | null>(hashToken);
-  const accessToken = manualToken ?? hashToken;
-  const isAuthenticated = useMemo(() => accessToken !== null, [accessToken]);
-
-  const handleSpotifyLogin = () => {
+  const handleSpotifyLogin = useCallback(() => {
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
     const redirectUri =
       process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || `${window.location.origin}/play`;
@@ -56,9 +49,26 @@ export default function PlayPage() {
     authUrl.searchParams.set("scope", scopes);
 
     window.location.href = authUrl.toString();
-  };
+  }, []);
 
-  if (!isAuthenticated) {
+  const handleLogout = useCallback(() => {
+    clearToken();
+    setAccessToken(null);
+  }, []);
+
+  // Show loading state while checking for token
+  if (isLoading) {
+    return (
+      <div className={styles.authContainer}>
+        <div className={styles.authCard}>
+          <h1>Soundcheck</h1>
+          <p className={styles.subtitle}>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!accessToken) {
     return (
       <div className={styles.authContainer}>
         <div className={styles.authCard}>
@@ -95,8 +105,8 @@ export default function PlayPage() {
   }
 
   return (
-    <SpotifyProvider accessToken={accessToken!}>
-      <QuizPlayer agentId={ELEVENLABS_AGENT_ID} theme="80s Hits" />
+    <SpotifyProvider accessToken={accessToken}>
+      <QuizPlayer agentId={ELEVENLABS_AGENT_ID} theme="80s Hits" onLogout={handleLogout} />
     </SpotifyProvider>
   );
 }

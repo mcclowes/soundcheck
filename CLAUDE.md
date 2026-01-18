@@ -6,7 +6,7 @@ Music pop quiz game using ElevenLabs conversational AI and Spotify.
 
 - Next.js 16 with App Router
 - TypeScript
-- Tailwind CSS
+- SCSS modules
 - ElevenLabs conversational AI (voice quiz host)
 - Spotify Web Playback SDK (song snippets)
 - Prettier + ESLint for formatting/linting
@@ -15,18 +15,25 @@ Music pop quiz game using ElevenLabs conversational AI and Spotify.
 
 ```
 src/
-├── app/                   # Next.js App Router pages
-│   ├── page.tsx          # Landing page
-│   └── play/page.tsx     # Quiz player with Spotify auth
+├── app/                       # Next.js App Router pages
+│   ├── globals.scss          # Global styles + CSS variables
+│   ├── page.tsx              # Landing page
+│   ├── page.module.scss      # Landing page styles
+│   └── play/
+│       ├── page.tsx          # Quiz player with Spotify auth
+│       └── page.module.scss  # Quiz page styles
 ├── components/
-│   └── QuizPlayer.tsx    # Main quiz UI with ElevenLabs integration
+│   ├── QuizPlayer.tsx        # Main quiz UI with ElevenLabs integration
+│   └── QuizPlayer.module.scss
 ├── lib/
-│   ├── clients/          # API clients (ElevenLabs SDK wrapper)
-│   ├── config/           # Constants and environment config
-│   ├── contexts/         # React contexts (Spotify provider)
-│   ├── hooks/            # Custom hooks (useSpotifyPlayer)
-│   └── services/         # Business logic (agent config builder)
-└── storage/prompts/      # Agent prompt templates
+│   ├── clients/              # API clients (ElevenLabs SDK wrapper)
+│   ├── config/               # Constants and environment config
+│   ├── contexts/             # React contexts (Spotify provider)
+│   ├── hooks/                # Custom hooks (useSpotifyPlayer)
+│   ├── services/             # Business logic (agent config builder)
+│   └── utils/                # Utility functions (parsing, token storage)
+├── storage/prompts/          # Agent prompt templates
+└── test/                     # Test setup
 ```
 
 ## Key concepts
@@ -65,6 +72,9 @@ npm run lint         # Run ESLint
 npm run lint:fix     # Fix lint issues
 npm run format       # Format with Prettier
 npm run format:check # Check formatting
+npm run test         # Run tests in watch mode
+npm run test:run     # Run tests once
+npm run test:coverage # Run tests with coverage
 ```
 
 ## Environment variables
@@ -75,6 +85,7 @@ Copy `.env.local.example` to `.env.local` and configure:
 - `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` - Your agent ID
 - `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` - Spotify app client ID
 - `SPOTIFY_CLIENT_SECRET` - Spotify app client secret
+- `NEXT_PUBLIC_SPOTIFY_REDIRECT_URI` - Spotify OAuth callback URL (default: `http://localhost:3000/callback`)
 
 ## Important notes
 
