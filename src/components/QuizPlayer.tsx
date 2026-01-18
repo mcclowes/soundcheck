@@ -236,8 +236,8 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
           <div className="text-center">
             <h2 className="text-4xl font-bold mb-4">Ready to play?</h2>
             <p className="text-gray-600 mb-8 max-w-md">
-              Listen to song snippets and guess the title or artist. You can replay each
-              snippet up to {MAX_REPLAYS} times.
+              Listen to song snippets and guess the title or artist. You can replay each snippet up
+              to {MAX_REPLAYS} times.
             </p>
             {!spotifyState.isReady && (
               <p className="text-amber-600 mb-4">
@@ -275,12 +275,12 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
             {spotifyState.isPlaying && (
               <div className="flex items-center justify-center gap-2 text-indigo-600 mb-6">
                 <div className="flex gap-1">
-                  {[...Array(4)].map((_, i) => (
+                  {[12, 18, 14, 20].map((height, i) => (
                     <div
                       key={i}
                       className="w-1 bg-indigo-600 rounded-full animate-pulse"
                       style={{
-                        height: `${12 + Math.random() * 12}px`,
+                        height: `${height}px`,
                         animationDelay: `${i * 0.15}s`,
                       }}
                     />
@@ -293,10 +293,7 @@ export function QuizPlayer({ agentId, theme }: QuizPlayerProps) {
             {/* Transcript */}
             <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto mb-6">
               {messages.map((msg, i) => (
-                <div
-                  key={i}
-                  className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}
-                >
+                <div key={i} className={`mb-3 ${msg.role === "user" ? "text-right" : "text-left"}`}>
                   <span
                     className={`inline-block px-3 py-2 rounded-lg ${
                       msg.role === "user"

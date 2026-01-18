@@ -1,6 +1,7 @@
 "use client";
 
 /// <reference types="@types/spotify-web-playback-sdk" />
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { SPOTIFY_CLIENT_ID, SNIPPET_DURATION_MS } from "@/lib/config/constants";
@@ -113,6 +114,17 @@ export function useSpotifyPlayer(): UseSpotifyPlayerReturn {
     };
   }, []);
 
+  const stopPlayback = useCallback(async () => {
+    if (snippetTimeoutRef.current) {
+      clearTimeout(snippetTimeoutRef.current);
+      snippetTimeoutRef.current = null;
+    }
+
+    if (playerRef.current) {
+      await playerRef.current.pause();
+    }
+  }, []);
+
   const playSnippet = useCallback(
     async (trackUri: string, startMs: number = 0) => {
       if (!accessTokenRef.current || !state.deviceId) {
@@ -150,19 +162,8 @@ export function useSpotifyPlayer(): UseSpotifyPlayerReturn {
         await stopPlayback();
       }, SNIPPET_DURATION_MS);
     },
-    [state.deviceId]
+    [state.deviceId, stopPlayback]
   );
-
-  const stopPlayback = useCallback(async () => {
-    if (snippetTimeoutRef.current) {
-      clearTimeout(snippetTimeoutRef.current);
-      snippetTimeoutRef.current = null;
-    }
-
-    if (playerRef.current) {
-      await playerRef.current.pause();
-    }
-  }, []);
 
   return {
     state,

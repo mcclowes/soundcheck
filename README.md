@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Soundcheck
 
-## Getting Started
+An AI-powered music pop quiz game. Listen to song snippets, guess the title or artist, and compete for high scores.
 
-First, run the development server:
+## How it works
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Connect your Spotify account (Premium required)
+2. The AI quiz host plays 5-second song snippets
+3. Guess the song title or artist using voice
+4. Get instant feedback and track your score
+5. Complete 10 songs per themed round
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Voice-based interaction powered by ElevenLabs conversational AI
+- Spotify integration for authentic song playback
+- Themed quiz rounds (80s hits, 90s pop, etc.)
+- Replay snippets up to 2 times per song
+- Real-time score tracking
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Getting started
 
-## Learn More
+### Prerequisites
 
-To learn more about Next.js, take a look at the following resources:
+- Node.js 18+
+- Spotify Premium account
+- ElevenLabs API key
+- Spotify Developer app credentials
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Clone the repository:
 
-## Deploy on Vercel
+   ```bash
+   git clone https://github.com/mcclowes/soundcheck.git
+   cd soundcheck
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. Install dependencies:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm install
+   ```
+
+3. Configure environment variables:
+
+   ```bash
+   cp .env.local.example .env.local
+   ```
+
+   Edit `.env.local` with your credentials:
+   - `ELEVENLABS_API_KEY` - Your ElevenLabs API key
+   - `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` - Your ElevenLabs agent ID
+   - `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` - Spotify app client ID
+   - `SPOTIFY_CLIENT_SECRET` - Spotify app client secret
+
+4. Start the development server:
+
+   ```bash
+   npm run dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000)
+
+## Creating an ElevenLabs agent
+
+1. Go to [ElevenLabs](https://elevenlabs.io) and create an account
+2. Navigate to Conversational AI > Agents
+3. Create a new agent using the config from `src/lib/services/agent-config.ts`
+4. Copy the agent ID to your `.env.local`
+
+## Tech stack
+
+- [Next.js](https://nextjs.org) - React framework
+- [ElevenLabs](https://elevenlabs.io) - Conversational AI
+- [Spotify Web Playback SDK](https://developer.spotify.com/documentation/web-playback-sdk) - Music playback
+- [Tailwind CSS](https://tailwindcss.com) - Styling
+- [TypeScript](https://www.typescriptlang.org) - Type safety
+
+## License
+
+MIT

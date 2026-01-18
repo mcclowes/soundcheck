@@ -2,51 +2,48 @@
 
 Music pop quiz game using ElevenLabs conversational AI and Spotify.
 
-## Architecture
+## Tech stack
 
-- **Next.js 15** with App Router
-- **ElevenLabs** for voice AI quiz host
-- **Spotify Web Playback SDK** for song snippets
-- **Tailwind CSS** for styling
+- Next.js 16 with App Router
+- TypeScript
+- Tailwind CSS
+- ElevenLabs conversational AI (voice quiz host)
+- Spotify Web Playback SDK (song snippets)
+- Prettier + ESLint for formatting/linting
 
-## Key directories
+## Project structure
 
 ```
 src/
-├── app/                   # Next.js pages
+├── app/                   # Next.js App Router pages
 │   ├── page.tsx          # Landing page
 │   └── play/page.tsx     # Quiz player with Spotify auth
 ├── components/
 │   └── QuizPlayer.tsx    # Main quiz UI with ElevenLabs integration
 ├── lib/
-│   ├── clients/          # API clients (ElevenLabs)
-│   ├── config/           # Constants and env vars
-│   ├── contexts/         # React contexts (Spotify)
+│   ├── clients/          # API clients (ElevenLabs SDK wrapper)
+│   ├── config/           # Constants and environment config
+│   ├── contexts/         # React contexts (Spotify provider)
 │   ├── hooks/            # Custom hooks (useSpotifyPlayer)
-│   └── services/         # Business logic (agent-config)
+│   └── services/         # Business logic (agent config builder)
 └── storage/prompts/      # Agent prompt templates
 ```
 
-## Client tools
+## Key concepts
 
-The ElevenLabs agent calls these client-side tools:
+### ElevenLabs client tools
 
-- `play_song_snippet` - Play a Spotify track snippet
+The agent calls these client-side tools during gameplay:
+
+- `play_song_snippet` - Play a Spotify track snippet (5 seconds)
 - `stop_playback` - Stop current playback
 - `reveal_answer` - Show correct answer in UI
 - `update_score` - Update score display
 - `show_results` - Show final results screen
 
-## Setup
+### Quiz themes
 
-1. Copy `.env.local.example` to `.env.local`
-2. Add ElevenLabs API key and create an agent
-3. Add Spotify app credentials (needs Premium for playback)
-4. Run `npm run dev`
-
-## Creating quiz themes
-
-Define themes in `src/lib/services/agent-config.ts` using the `QuizTheme` type:
+Define themes using the `QuizTheme` type in `src/lib/services/agent-config.ts`:
 
 ```typescript
 const theme: QuizTheme = {
@@ -54,14 +51,34 @@ const theme: QuizTheme = {
   description: "Classic songs from the 1980s",
   songs: [
     { trackUri: "spotify:track:...", title: "...", artist: "..." },
-    // ... 10 songs total
-  ]
+    // 10 songs total
+  ],
 };
 ```
 
-## Development notes
+## Commands
 
-- Spotify requires Premium account for Web Playback SDK
-- Agent prompt is in `src/storage/prompts/base_prompt.md`
-- Song snippets are 5 seconds, configurable in constants
+```bash
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run lint         # Run ESLint
+npm run lint:fix     # Fix lint issues
+npm run format       # Format with Prettier
+npm run format:check # Check formatting
+```
+
+## Environment variables
+
+Copy `.env.local.example` to `.env.local` and configure:
+
+- `ELEVENLABS_API_KEY` - ElevenLabs API key
+- `NEXT_PUBLIC_ELEVENLABS_AGENT_ID` - Your agent ID
+- `NEXT_PUBLIC_SPOTIFY_CLIENT_ID` - Spotify app client ID
+- `SPOTIFY_CLIENT_SECRET` - Spotify app client secret
+
+## Important notes
+
+- Spotify Web Playback SDK requires a Premium account
+- Agent prompt template: `src/storage/prompts/base_prompt.md`
+- Song snippets default to 5 seconds (configurable in constants)
 - Max 2 replays per song

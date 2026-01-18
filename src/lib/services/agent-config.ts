@@ -37,7 +37,8 @@ const CLIENT_TOOLS: ClientTool[] = [
   {
     type: "client",
     name: TOOL_NAMES.REVEAL_ANSWER,
-    description: "Reveal the correct answer for the current song, showing the song title and artist.",
+    description:
+      "Reveal the correct answer for the current song, showing the song title and artist.",
     parameters: {
       type: "object",
       properties: {
@@ -155,10 +156,7 @@ export function buildAgentConfig(theme: QuizTheme, voiceId?: string): AgentConfi
 
 function buildPrompt(theme: QuizTheme): string {
   const songList = theme.songs
-    .map(
-      (song, i) =>
-        `Song ${i + 1}: "${song.title}" by ${song.artist} (URI: ${song.trackUri})`
-    )
+    .map((song, i) => `Song ${i + 1}: "${song.title}" by ${song.artist} (URI: ${song.trackUri})`)
     .join("\n");
 
   return `You are an enthusiastic music quiz host for "Soundcheck", a pop quiz game where players guess songs from short audio snippets.

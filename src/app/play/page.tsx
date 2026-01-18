@@ -1,32 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useMemo, useSyncExternalStore, useCallback } from "react";
 import { SpotifyProvider } from "@/lib/contexts/SpotifyContext";
 import { QuizPlayer } from "@/components/QuizPlayer";
 import { ELEVENLABS_AGENT_ID } from "@/lib/config/constants";
 
-export default function PlayPage() {
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+function getTokenFromHash(): string | null {
+  if (typeof window === "undefined") return null;
+  const hash = window.location.hash;
+  if (!hash) return null;
+  const params = new URLSearchParams(hash.substring(1));
+  const token = params.get("access_token");
+  if (token) {
+    window.history.replaceState(null, "", window.location.pathname);
+  }
+  return token;
+}
 
-  useEffect(() => {
-    // Check for token in URL hash (Spotify implicit grant flow)
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1));
-      const token = params.get("access_token");
-      if (token) {
-        setAccessToken(token);
-        setIsAuthenticated(true);
-        // Clear the hash
-        window.history.replaceState(null, "", window.location.pathname);
-      }
-    }
+function useHashToken() {
+  const subscribe = useCallback((callback: () => void) => {
+    window.addEventListener("hashchange", callback);
+    return () => window.removeEventListener("hashchange", callback);
   }, []);
+
+  const getSnapshot = useCallback(() => getTokenFromHash(), []);
+  const getServerSnapshot = useCallback(() => null, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}
+
+export default function PlayPage() {
+  const hashToken = useHashToken();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [manualToken, _setManualToken] = useState<string | null>(hashToken);
+  const accessToken = manualToken ?? hashToken;
+  const isAuthenticated = useMemo(() => accessToken !== null, [accessToken]);
 
   const handleSpotifyLogin = () => {
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID;
-    const redirectUri = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || `${window.location.origin}/play`;
+    const redirectUri =
+      process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || `${window.location.origin}/play`;
     const scopes = [
       "streaming",
       "user-read-email",
@@ -68,9 +81,7 @@ export default function PlayPage() {
             Connect with Spotify
           </button>
 
-          <p className="text-xs text-gray-400 mt-4">
-            Requires Spotify Premium for playback
-          </p>
+          <p className="text-xs text-gray-400 mt-4">Requires Spotify Premium for playback</p>
         </div>
       </div>
     );
