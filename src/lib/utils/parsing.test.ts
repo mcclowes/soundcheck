@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { parseIntSafe, parseSpotifyTokenFromHash, isTokenExpired } from "./parsing";
+import {
+  parseIntSafe,
+  parseBooleanParam,
+  parseSpotifyTokenFromHash,
+  isTokenExpired,
+} from "./parsing";
 
 describe("parseIntSafe", () => {
   it("parses valid integers", () => {
@@ -23,6 +28,56 @@ describe("parseIntSafe", () => {
     expect(parseIntSafe("42.5")).toBe(42); // parseInt behavior
     expect(parseIntSafe("42abc")).toBe(42); // parseInt behavior
     expect(parseIntSafe("   42")).toBe(42); // leading whitespace
+  });
+});
+
+describe("parseBooleanParam", () => {
+  it("handles boolean values", () => {
+    expect(parseBooleanParam(true)).toBe(true);
+    expect(parseBooleanParam(false)).toBe(false);
+  });
+
+  it("handles string 'true' in various cases", () => {
+    expect(parseBooleanParam("true")).toBe(true);
+    expect(parseBooleanParam("True")).toBe(true);
+    expect(parseBooleanParam("TRUE")).toBe(true);
+    expect(parseBooleanParam("  true  ")).toBe(true);
+  });
+
+  it("handles string 'false' and other falsy strings", () => {
+    expect(parseBooleanParam("false")).toBe(false);
+    expect(parseBooleanParam("False")).toBe(false);
+    expect(parseBooleanParam("no")).toBe(false);
+    expect(parseBooleanParam("")).toBe(false);
+    expect(parseBooleanParam("random")).toBe(false);
+  });
+
+  it("handles string '1' and 'yes'", () => {
+    expect(parseBooleanParam("1")).toBe(true);
+    expect(parseBooleanParam("yes")).toBe(true);
+    expect(parseBooleanParam("Yes")).toBe(true);
+    expect(parseBooleanParam("YES")).toBe(true);
+  });
+
+  it("handles string '0'", () => {
+    expect(parseBooleanParam("0")).toBe(false);
+  });
+
+  it("handles number values", () => {
+    expect(parseBooleanParam(1)).toBe(true);
+    expect(parseBooleanParam(0)).toBe(false);
+    expect(parseBooleanParam(-1)).toBe(true);
+    expect(parseBooleanParam(42)).toBe(true);
+  });
+
+  it("handles null and undefined", () => {
+    expect(parseBooleanParam(null)).toBe(false);
+    expect(parseBooleanParam(undefined)).toBe(false);
+  });
+
+  it("handles objects and arrays", () => {
+    expect(parseBooleanParam({})).toBe(false);
+    expect(parseBooleanParam([])).toBe(false);
   });
 });
 

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { useSpotify } from "@/lib/contexts/SpotifyContext";
 import { TOOL_NAMES, SONGS_PER_ROUND, MAX_REPLAYS } from "@/lib/config/constants";
-import { parseIntSafe } from "@/lib/utils/parsing";
+import { parseIntSafe, parseBooleanParam } from "@/lib/utils/parsing";
 import styles from "./QuizPlayer.module.scss";
 
 const MAX_MESSAGE_HISTORY = 50;
@@ -55,6 +55,15 @@ export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
   const [showResults, setShowResults] = useState(false);
 
   const replaysRef = useRef<Record<string, number>>({});
+  const isMountedRef = useRef(true);
+
+  // Track mounted state for async operations
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const conversation = useConversation({
     clientTools: {
@@ -64,7 +73,7 @@ export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
         is_replay?: string;
       }) => {
         const songKey = params.song_number;
-        const isReplay = params.is_replay === "true";
+        const isReplay = parseBooleanParam(params.is_replay);
 
         if (isReplay) {
           const currentReplays = replaysRef.current[songKey] || 0;
@@ -104,7 +113,7 @@ export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
             title: params.song_title,
             artist: params.artist,
           },
-          lastAnswerCorrect: params.was_correct === "true",
+          lastAnswerCorrect: parseBooleanParam(params.was_correct),
         }));
         return `Answer revealed: "${params.song_title}" by ${params.artist}`;
       },
@@ -118,7 +127,7 @@ export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
           ...prev,
           currentScore: parseIntSafe(params.current_score, prev.currentScore),
           songsCompleted: parseIntSafe(params.songs_completed, prev.songsCompleted),
-          lastAnswerCorrect: params.last_answer_correct === "true",
+          lastAnswerCorrect: parseBooleanParam(params.last_answer_correct),
         }));
         return "Score updated";
       },
@@ -175,16 +184,22 @@ export function QuizPlayer({ agentId, theme, onLogout }: QuizPlayerProps) {
         connectionType: "websocket",
       });
     } catch (error) {
-      setIsStarted(false);
-      setStartError(
-        `Failed to start quiz: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setIsStarted(false);
+        setStartError(
+          `Failed to start quiz: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
     }
   }, [conversation, agentId, spotifyState.isReady]);
 
   const handleEnd = useCallback(async () => {
     await conversation.endSession();
-    setIsStarted(false);
+    // Only update state if component is still mounted
+    if (isMountedRef.current) {
+      setIsStarted(false);
+    }
   }, [conversation]);
 
   const handlePlayAgain = useCallback(() => {

@@ -91,7 +91,7 @@ function loadSpotifySDK(onReady: () => void): () => void {
     window.__spotifySDKCallbacks = [];
   };
 
-  document.body.appendChild(script);
+  document.head.appendChild(script);
 
   // Return cleanup function
   return () => {
@@ -261,7 +261,11 @@ export function useSpotifyPlayer(): UseSpotifyPlayerReturn {
       // Set timeout to stop after snippet duration
       snippetTimeoutRef.current = setTimeout(async () => {
         if (isMountedRef.current) {
-          await stopPlayback();
+          try {
+            await stopPlayback();
+          } catch (error) {
+            console.error("Failed to stop playback after snippet duration:", error);
+          }
         }
       }, SNIPPET_DURATION_MS);
     },

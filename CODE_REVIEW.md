@@ -1,465 +1,433 @@
 # Code review: Soundcheck
 
 **Reviewer:** Principal Engineer (new to project)
-**Date:** 2026-01-18
-**Severity scale:** 🔴 Critical | 🟠 Major | 🟡 Minor | 🔵 Nitpick
+**Date:** 2026-01-20
+**Severity scale:** Critical | High | Medium | Low
 
 ---
 
 ## Executive summary
 
-This codebase has several fundamental architectural issues that will cause problems at scale and in production. While the prototype demonstrates the core concept, it lacks the robustness expected of production software. The absence of tests, inadequate error handling, security vulnerabilities, and tight coupling between concerns are the primary issues.
+**Overall quality: 6.5/10**
+
+The codebase demonstrates solid fundamentals—good TypeScript usage, reasonable file organization, and thoughtful security considerations in OAuth handling. Recent commits (72442a6) show attention to critical issues like OAuth security and race conditions.
+
+However, several significant issues need addressing: a potential infinite loop bug, deprecated OAuth patterns, missing critical tests, and gaps in error handling that will bite you in production.
 
 ---
 
-## 🔴 Critical issues
+## Critical issues (fix immediately)
 
-### 1. Zero test coverage
+### 1. SpotifyContext has a dependency tracking bug that can cause infinite re-renders
 
-**Location:** Entire codebase
-**Issue:** There are no tests whatsoever—no unit tests, no integration tests, no E2E tests.
-
-**Why this matters:**
-- You cannot refactor with confidence
-- Regressions will ship to production undetected
-- New team members have no executable documentation of expected behavior
-- The CLAUDE.md mentions "TDD where possible" but this was clearly ignored
-
-**What good looks like:**
-```
-src/
-├── lib/
-│   ├── hooks/
-│   │   ├── useSpotifyPlayer.ts
-│   │   └── useSpotifyPlayer.test.ts  ← Test alongside implementation
-```
-
-**Action required:** Add Vitest (per your stated stack preferences), write tests for:
-- `useSpotifyPlayer` hook behavior
-- `useHashToken` parsing logic
-- `buildAgentConfig` output structure
-- Client tool handlers in `QuizPlayer`
-
----
-
-### 2. OAuth tokens exposed in URL fragment
-
-**Location:** `src/app/play/page.tsx:9-19`
-
-```typescript
-function getTokenFromHash(): string | null {
-  const hash = window.location.hash;
-  const params = new URLSearchParams(hash.substring(1));
-  const token = params.get("access_token");
-  if (token) {
-    window.history.replaceState(null, "", window.location.pathname);
-  }
-  return token;
-}
-```
-
-**Issues:**
-1. **Token leakage via Referer header** – Before `replaceState` executes, the token is in the URL. Any external resource loaded (images, scripts, analytics) could capture it via `Referer`.
-2. **Browser history exposure** – The token momentarily exists in browser history.
-3. **No token validation** – The token is trusted blindly without any verification.
-4. **Implicit grant flow is deprecated** – Spotify recommends PKCE authorization code flow.
-
-**What good looks like:**
-- Use Authorization Code with PKCE (server-side token exchange)
-- Validate token format before use
-- Store tokens in httpOnly cookies or secure session storage
-- Implement token refresh logic
-
----
-
-### 3. Access token stored only in ref, lost on re-render paths
-
-**Location:** `src/lib/hooks/useSpotifyPlayer.ts:43-48`
-
-```typescript
-const accessTokenRef = useRef<string | null>(null);
-
-const setAccessToken = useCallback((token: string) => {
-  accessTokenRef.current = token;
-}, []);
-```
-
-**Issues:**
-1. Token is only in a ref—if the component unmounts and remounts, it's gone
-2. No persistence mechanism (sessionStorage, etc.)
-3. If user refreshes the page after the hash is cleared, they lose authentication
-4. No token expiration handling—Spotify tokens expire after 1 hour
-
-**What good looks like:**
-- Store token with expiration timestamp in sessionStorage
-- Check expiration before API calls
-- Implement refresh token flow (requires PKCE migration)
-- Clear storage on logout
-
----
-
-### 4. Spotify SDK script injected without cleanup race condition
-
-**Location:** `src/lib/hooks/useSpotifyPlayer.ts:57-105`
+**File:** `src/lib/contexts/SpotifyContext.tsx:20`
 
 ```typescript
 useEffect(() => {
-  const script = document.createElement("script");
-  script.src = "https://sdk.scdn.co/spotify-player.js";
-  document.body.appendChild(script);
-
-  window.onSpotifyWebPlaybackSDKReady = () => {
-    // ... player setup
-  };
-
-  return () => {
-    if (playerRef.current) {
-      playerRef.current.disconnect();
-    }
-  };
-}, []);
+  if (accessToken) {
+    spotify.setAccessToken(accessToken);
+  }
+}, [accessToken, spotify]); // BUG: spotify object is unstable
 ```
 
-**Issues:**
-1. **Script not removed on cleanup** – Multiple mounts will inject multiple scripts
-2. **Global callback overwritten** – If two components use this hook, second overwrites first
-3. **No duplicate script check** – Should check if script already exists
-4. **Cleanup race condition** – Script might load after component unmounts, creating orphaned player
+**Problem:** The `spotify` object returned by `useSpotifyPlayer()` is a new reference on every render. Including it in the dependency array means this effect runs on every render, which calls `setAccessToken`, which can trigger state updates, creating a render loop.
 
-**What good looks like:**
+**Why this matters:** This can cause performance issues, excessive API calls, and potentially freeze the browser tab.
+
+**Fix:** Remove `spotify` from the dependency array:
+
 ```typescript
+}, [accessToken]);
+```
+
+Or better, extract the stable function at the top level:
+
+```typescript
+const { setAccessToken } = spotify;
+
 useEffect(() => {
-  // Check if SDK already loaded
-  if (window.Spotify) {
-    initializePlayer();
-    return;
+  if (accessToken) {
+    setAccessToken(accessToken);
   }
-
-  // Check if script already injecting
-  if (document.querySelector('script[src*="spotify-player.js"]')) {
-    // Wait for existing script
-    return;
-  }
-
-  const script = document.createElement("script");
-  // ...
-
-  return () => {
-    script.remove(); // Clean up script
-    playerRef.current?.disconnect();
-  };
-}, []);
+}, [accessToken, setAccessToken]);
 ```
 
 ---
 
-## 🟠 Major issues
+### 2. OAuth uses deprecated Implicit Flow instead of Authorization Code Flow with PKCE
 
-### 5. Hardcoded theme with no theme selection
-
-**Location:** `src/app/play/page.tsx:99`
+**File:** `src/app/play/page.tsx:47`
 
 ```typescript
-<QuizPlayer agentId={ELEVENLABS_AGENT_ID} theme="80s Hits" />
+authUrl.searchParams.set("response_type", "token"); // Implicit Flow
 ```
 
-**Issue:** The theme is hardcoded. The `buildAgentConfig` function and `QuizTheme` type exist but are never used. There's no way for users to select different quiz themes.
+**Problems:**
 
-**What's missing:**
-- Theme selection UI
-- Theme data (song lists) – where do these come from?
-- API route or data source for themes
+1. **Security:** Implicit Flow exposes the access token in the URL, browser history, and potentially via Referer headers (despite the hash-clearing mitigation)
+2. **No refresh tokens:** Users must re-authenticate after token expires (1 hour)
+3. **Deprecated:** OAuth 2.1 formally deprecates Implicit Flow. Major providers (including Spotify) recommend against it
+
+**Teaching moment for junior engineers:** OAuth flows are one of the most common sources of security vulnerabilities. The Implicit Flow was designed for an era before modern browsers had robust CORS support. Today, Authorization Code Flow with PKCE is the standard for SPAs.
+
+**Fix:** Implement Authorization Code Flow with PKCE:
+1. Generate a code verifier and challenge on the client
+2. Exchange the authorization code for tokens via a backend endpoint (or Spotify's token endpoint directly if using PKCE)
+3. Implement token refresh before expiration
 
 ---
 
-### 6. No loading states or error boundaries
+## High priority issues
 
-**Location:** Throughout application
+### 3. No token refresh mechanism
 
-**Issues:**
-1. No loading indicator while Spotify SDK initializes
-2. No error boundary around `QuizPlayer`
-3. `conversation.startSession` can fail but UI doesn't handle this
-4. `playSnippet` errors are swallowed and returned as strings to the AI
+**Impact:** After 1 hour, the user's session abruptly ends mid-quiz with no graceful recovery.
 
-**Example of silent failure:**
+**Files:** `src/lib/utils/token-storage.ts`, `src/app/play/page.tsx`
+
+The current implementation has a 5-minute expiration buffer (good), but when the token expires, there's no:
+- Warning to the user
+- Automatic refresh attempt
+- Graceful degradation
+
+**Edge case not handled:** User starts a 10-song quiz, takes 45 minutes, token expires at song 8. Playback fails silently, and `playSnippet` throws an error that only appears in the console.
+
+**Teaching moment:** Always design for session lifecycle. Tokens expire—that's not exceptional, it's expected. Your application should handle it gracefully.
+
+---
+
+### 4. Missing component and integration tests
+
+**Current coverage:** 40 tests across 3 files—all utility functions.
+
+**Untested code (high impact):**
+
+| File | Lines | Risk |
+|------|-------|------|
+| `QuizPlayer.tsx` | 359 | **Critical** - Core gameplay |
+| `useSpotifyPlayer.ts` | 278 | **High** - SDK integration |
+| `SpotifyContext.tsx` | 32 | **Medium** - Contains bug |
+| `play/page.tsx` | 113 | **Medium** - OAuth flow |
+
+**Why this matters:** The utility tests are excellent (`parsing.test.ts`, `token-storage.test.ts`, `agent-config.test.ts`), but they test the easy parts. The complex, bug-prone parts (component state, async effects, SDK integration) have zero coverage.
+
+**Estimate:** ~40-60 tests needed to properly cover components and hooks.
+
+---
+
+### 5. Race condition risk in QuizPlayer.handleStart
+
+**File:** `src/components/QuizPlayer.tsx:171-182`
+
 ```typescript
-// QuizPlayer.tsx:76-83
 try {
-  await playSnippet(params.track_uri);
-  return `Playing song ${params.song_number}`;
+  setIsStarted(true);
+  await conversation.startSession({...}); // What if component unmounts here?
 } catch (error) {
-  return `Error playing song: ${error instanceof Error ? error.message : "Unknown error"}`;
-  // ← Error returned to AI, but UI shows nothing to user
+  setIsStarted(false); // State update on unmounted component
 }
 ```
 
-**What good looks like:**
-- Suspense boundaries with fallbacks
-- Error boundaries with recovery options
-- Toast/notification system for transient errors
-- Explicit loading states in UI
+**Problem:** If the user navigates away before `startSession` completes, React will warn about state updates on unmounted components.
 
----
-
-### 7. `parseInt` without validation
-
-**Location:** `src/components/QuizPlayer.tsx:114-116, 128-130`
+**Teaching moment:** Async operations that update state need mounted-state guards:
 
 ```typescript
-currentScore: parseInt(params.current_score, 10),
-songsCompleted: parseInt(params.songs_completed, 10),
-```
+const isMountedRef = useRef(true);
+useEffect(() => () => { isMountedRef.current = false; }, []);
 
-**Issue:** If the AI sends malformed data (and LLMs do this), `parseInt` returns `NaN`, which will break the UI and calculations.
-
-**What good looks like:**
-```typescript
-function parseIntSafe(value: string, fallback: number = 0): number {
-  const parsed = parseInt(value, 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+// Then in async code:
+if (isMountedRef.current) {
+  setIsStarted(false);
 }
 ```
 
+The `useSpotifyPlayer` hook does this correctly (line 120)—use that as a reference.
+
 ---
 
-### 8. `alert()` used for user feedback
+## Medium priority issues
 
-**Location:** `src/components/QuizPlayer.tsx:153`
+### 6. Timeout error handling is missing
+
+**File:** `src/lib/hooks/useSpotifyPlayer.ts:262-266`
 
 ```typescript
-if (!spotifyState.isReady) {
-  alert("Spotify player not ready. Please make sure you're logged in.");
-  return;
+snippetTimeoutRef.current = setTimeout(async () => {
+  if (isMountedRef.current) {
+    await stopPlayback(); // If this throws, it's unhandled
+  }
+}, SNIPPET_DURATION_MS);
+```
+
+**Problem:** If `stopPlayback()` throws (network error, player disconnected), the error is silently swallowed by the setTimeout. No logging, no recovery.
+
+**Fix:**
+
+```typescript
+snippetTimeoutRef.current = setTimeout(async () => {
+  if (isMountedRef.current) {
+    try {
+      await stopPlayback();
+    } catch (error) {
+      console.error("Failed to stop playback:", error);
+      // Optionally update error state
+    }
+  }
+}, SNIPPET_DURATION_MS);
+```
+
+---
+
+### 7. Tool parameters use fragile string comparisons
+
+**File:** `src/components/QuizPlayer.tsx:67`
+
+```typescript
+const isReplay = params.is_replay === "true";
+```
+
+**Problem:** AI models can return parameters in unexpected formats. What if it returns `"True"`, `"TRUE"`, `"yes"`, or the boolean `true`?
+
+**Better approach:**
+
+```typescript
+function parseBooleanParam(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    return value.toLowerCase() === "true" || value === "1";
+  }
+  return false;
 }
+
+const isReplay = parseBooleanParam(params.is_replay);
 ```
 
-**Issue:** `alert()` is a blocking, modal, non-styleable 1990s API. It breaks the user experience and is inaccessible.
-
-**What good looks like:**
-- Inline error messages
-- Toast notifications
-- Disabled button with tooltip explaining why
+This makes the code resilient to AI output variations.
 
 ---
 
-### 9. Memory leak: messages array grows unbounded
+### 8. No Premium account validation before quiz start
 
-**Location:** `src/components/QuizPlayer.tsx:137-145`
+**File:** `src/app/play/page.tsx`
+
+Spotify Web Playback SDK requires Premium. Currently, a Free user can:
+1. Log in successfully
+2. See the quiz start screen
+3. Click "Start Quiz"
+4. Get a cryptic error when playback fails
+
+**Better UX:** Check account type immediately after OAuth callback and show a clear message.
+
+---
+
+### 9. `as any` casts bypass type safety
+
+**File:** `src/lib/clients/elevenlabs.ts:61, 68`
 
 ```typescript
-onMessage: (message) => {
-  setMessages((prev) => [
-    ...prev,
-    { role: message.source === "user" ? "user" : "agent", content: message.message },
-  ]);
-},
-```
-
-**Issue:** Messages accumulate indefinitely. In a long session or multiple rounds, this will cause:
-- Increasing memory usage
-- Slower re-renders (entire array re-rendered each message)
-- Eventually, browser tab crash
-
-**What good looks like:**
-- Limit message history (e.g., last 50 messages)
-- Use virtualized list for rendering
-- Clear messages between rounds
-
----
-
-### 10. Missing callback route
-
-**Location:** `src/lib/config/constants.ts:6-7`
-
-```typescript
-export const SPOTIFY_REDIRECT_URI =
-  process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI || "http://localhost:3000/callback";
-```
-
-**Issue:** The default redirect points to `/callback`, but there's no `src/app/callback/` route. The code actually redirects to `/play` (see `play/page.tsx:43`), making this constant misleading.
-
-**Impact:** Configuration confusion, potential production issues if someone uses the documented default.
-
----
-
-## 🟡 Minor issues
-
-### 11. Unused font import
-
-**Location:** `src/app/layout.tsx:10-14`
-
-```typescript
-const pirataOne = Pirata_One({
-  variable: "--font-pirata",
-  weight: "400",
-  subsets: ["latin"],
-});
-```
-
-**Issue:** This font is imported but `--font-pirata` is never used in any SCSS file. Unnecessary network request.
-
----
-
-### 12. ESLint disabled for legitimate warning
-
-**Location:** `src/lib/hooks/useSpotifyPlayer.ts:4`
-
-```typescript
-/* eslint-disable react-hooks/set-state-in-effect */
-```
-
-**Issue:** This rule exists for good reason. Setting state in effect cleanup or async callbacks can cause memory leaks if component unmounts. The code should be restructured rather than disabling the rule.
-
----
-
-### 13. Inconsistent error handling patterns
-
-**Location:** Various
-
-- `useSpotifyPlayer`: Sets error in state
-- `QuizPlayer`: Returns error string to AI
-- `handleStart`: Uses `alert()`
-- `elevenlabs.ts`: Throws errors
-
-**What good looks like:** Consistent error handling strategy across the application, preferably with a central error handling service or context.
-
----
-
-### 14. `window.location.reload()` for "Play Again"
-
-**Location:** `src/components/QuizPlayer.tsx:183`
-
-```typescript
-<button onClick={() => window.location.reload()}>
-  Play Again
-</button>
-```
-
-**Issue:** Full page reload is heavy-handed. Loses any app state, re-downloads all resources, re-initializes Spotify SDK.
-
-**What good looks like:**
-- Reset component state
-- Disconnect and reconnect conversation
-- Clear progress/results
-- Optional: Reset Spotify player position
-
----
-
-### 15. Type coercion via `eslint-disable`
-
-**Location:** `src/lib/clients/elevenlabs.ts:60-68`
-
-```typescript
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const response = await sdk.conversationalAi.agents.create(config as any);
 ```
 
-**Issue:** Casting to `any` bypasses TypeScript's safety. If the ElevenLabs SDK types don't match, you should:
-1. File an issue/PR with ElevenLabs
-2. Create proper type declarations
-3. Use `unknown` with type guards if necessary
+**Problem:** These casts hide type mismatches that could cause runtime errors.
+
+**Fix:** Create proper type definitions that extend the SDK types, or contribute types back to the SDK package.
+
+**Teaching moment:** `as any` is almost always a code smell. It tells the compiler "trust me"—but you shouldn't trust yourself. The type system exists to catch your mistakes.
 
 ---
 
-### 16. No accessibility considerations
+### 10. Replay tracking uses both ref and state
 
-**Location:** Entire application
-
-**Missing:**
-- ARIA labels on icon buttons
-- Focus management when modals/views change
-- Screen reader announcements for score changes
-- Keyboard navigation support
-- Color contrast verification
-
----
-
-## 🔵 Nitpicks
-
-### 17. Unused variable with eslint-disable
-
-**Location:** `src/app/play/page.tsx:35-36`
+**File:** `src/components/QuizPlayer.tsx:57, 74-75`
 
 ```typescript
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const [manualToken, _setManualToken] = useState<string | null>(hashToken);
+const replaysRef = useRef<Record<string, number>>({});
+
+// Later:
+replaysRef.current[songKey] = currentReplays + 1;
+setProgress((prev) => ({ ...prev, replaysUsed: currentReplays + 1 }));
 ```
 
-**Issue:** If you need to disable eslint for unused variables, the variable probably shouldn't exist. The `manualToken` mechanism appears to be vestigial code from a removed feature.
+**Problem:** Two sources of truth. The ref tracks replays per song (a map), while state tracks a single `replaysUsed` number. This works, but it's confusing.
+
+**Cleaner approach:** Either:
+1. Track everything in state (use a Map for per-song tracking), or
+2. Track everything in refs (if you don't need re-renders for replay changes)
+
+Pick one mental model and stick with it.
 
 ---
 
-### 18. Magic numbers and strings
+## Lower priority issues
 
-**Location:** `src/lib/services/agent-config.ts:140`
+### 11. SDK script appended to body instead of head
+
+**File:** `src/lib/hooks/useSpotifyPlayer.ts:94`
 
 ```typescript
-voice_id: voiceId || "21m00Tcm4TlvDq8ikWAM", // Default Rachel voice
+document.body.appendChild(script);
 ```
 
-**Issue:** Magic string with comment is fragile. Should be in constants.
+Scripts should go in `<head>` for proper HTML semantics and to avoid layout thrashing.
 
 ---
 
-### 19. Inconsistent component export style
+### 12. No Spotify API retry logic
 
-**Location:** Throughout
+**File:** `src/lib/hooks/useSpotifyPlayer.ts:241-259`
+
+Spotify's API can return transient errors (503, 429). The current implementation treats all failures as permanent.
+
+**Recommended:** Add exponential backoff retry for specific status codes:
 
 ```typescript
-// Some files
-export function QuizPlayer() {}
-
-// Other files
-export default function Home() {}
+const RETRYABLE_STATUS_CODES = [429, 502, 503, 504];
 ```
 
-**Recommendation:** Pick one style and stick with it. Named exports are generally preferred as they're easier to refactor and tree-shake.
+---
+
+### 13. Theme is hardcoded
+
+**File:** `src/app/play/page.tsx:109`
+
+```typescript
+<QuizPlayer agentId={ELEVENLABS_AGENT_ID} theme="80s Hits" onLogout={handleLogout} />
+```
+
+The `theme` prop is hardcoded to "80s Hits" but the infrastructure exists to support multiple themes. This should be dynamic or at least documented as intentional.
 
 ---
 
-## Architecture concerns
+### 14. No loading states during async operations
 
-### Coupling issues
+The UI doesn't show loading indicators when:
+- Starting a quiz session
+- Playing a snippet
+- Ending a session
 
-The `QuizPlayer` component is a 300-line monolith that handles:
-- ElevenLabs conversation management
-- Spotify playback control
-- Quiz state management
-- UI rendering
-- Score tracking
-- Results display
-
-This violates single responsibility principle. Consider:
-- Custom hook for quiz logic (`useQuizGame`)
-- Separate components for game phases (Start, Playing, Results)
-- State machine for game flow
-
-### Missing abstraction layer
-
-Client tools are defined inline in `QuizPlayer` but their schemas are in `agent-config.ts`. This creates a maintenance burden—you have to update two places when changing tool behavior.
-
-### No data persistence
-
-- No score history
-- No user preferences
-- No session recovery
-- No analytics
+Users don't know if something is happening or if the app is frozen.
 
 ---
 
-## Recommendations prioritized
+## Edge cases not handled
 
-1. **Immediate:** Fix OAuth security issues (migrate to PKCE)
-2. **This week:** Add basic error boundaries and loading states
-3. **This sprint:** Write tests for core logic (hooks, config builder)
-4. **Next sprint:** Refactor QuizPlayer into smaller components
-5. **Backlog:** Add accessibility, analytics, score persistence
+1. **Browser back button during quiz:** User loses all progress with no warning
+2. **Multiple tabs:** Can two tabs run quizzes simultaneously? (Probably causes Spotify conflicts)
+3. **Network disconnection mid-quiz:** WebSocket to ElevenLabs drops, no reconnection logic
+4. **Spotify playing in another app:** Device transfer behavior is undefined
+5. **Very slow network:** No timeout on API calls, could hang indefinitely
+6. **Browser permissions denied:** If microphone access is needed by ElevenLabs, there's no handling for permission denial
+
+---
+
+## Security considerations
+
+**Good practices observed:**
+- sessionStorage for tokens (cleared on browser close)
+- URL hash cleared immediately after OAuth callback
+- Token expiration validation with 5-minute buffer
+- API keys in environment variables
+- ELEVENLABS_API_KEY not exposed to client
+
+**Concerns:**
+1. Implicit OAuth Flow (discussed above)
+2. No Content Security Policy headers configured
+3. No rate limiting on client-side API calls
+4. WebSocket connections not validated (relies on ElevenLabs SDK)
+
+---
+
+## Testing recommendations
+
+### Immediate (before next release)
+
+1. **SpotifyContext test:** Verify the dependency bug is fixed
+2. **QuizPlayer state tests:** Test state transitions for start, play, answer, end
+3. **useSpotifyPlayer tests:** Mock the Spotify SDK, test the callback queue logic
+
+### Short term
+
+1. **OAuth flow tests:** Mock window.location, test token extraction
+2. **Error scenario tests:** Network failures, expired tokens, SDK errors
+3. **Integration test:** Full quiz flow with mocked APIs
+
+### Long term
+
+1. **E2E tests with Playwright:** Real browser, real interactions
+2. **Visual regression tests:** Ensure UI doesn't break
+
+---
+
+## Architecture recommendations
+
+### Consider a state machine for quiz flow
+
+The current implementation uses multiple `useState` calls that can get out of sync. A state machine (xstate or similar) would make the quiz flow explicit:
+
+```
+idle -> starting -> playing -> waitingForGuess -> revealing -> (loop or) finished
+```
+
+This makes edge cases explicit and prevents impossible states.
+
+### Consider moving OAuth to a backend
+
+The current client-side OAuth is fine for an MVP, but moving to a backend would:
+- Enable Authorization Code Flow (more secure)
+- Allow token refresh
+- Hide credentials from the client
+- Enable server-side Spotify API calls
+
+---
+
+## What the codebase does well
+
+Credit where due—these are patterns worth maintaining:
+
+1. **Race condition handling in SDK loading:** The callback queue pattern in `loadSpotifySDK()` is sophisticated and correctly handles edge cases
+2. **Token storage security:** The immediate hash-clearing and sessionStorage usage shows security awareness
+3. **File organization:** Clear separation of concerns, proper use of Next.js conventions
+4. **TypeScript strict mode:** Catches many bugs at compile time
+5. **Utility test quality:** The tests for parsing and token storage are thorough
+6. **Good use of parseIntSafe:** Handles AI output variations safely
+7. **Message history limiting:** Prevents memory leaks with MAX_MESSAGE_HISTORY cap
+8. **Play Again state reset:** Properly resets state instead of reloading page
+
+---
+
+## Action items summary
+
+| Priority | Issue | Effort |
+|----------|-------|--------|
+| Critical | Fix SpotifyContext dependency array | 5 min |
+| High | Migrate to OAuth PKCE flow | 1-2 days |
+| High | Add component tests | 1-2 days |
+| High | Handle token expiration gracefully | 2-4 hours |
+| Medium | Add mounted guards to QuizPlayer | 30 min |
+| Medium | Add timeout error handling | 15 min |
+| Medium | Improve boolean param parsing | 30 min |
+| Low | Move script to head | 5 min |
+| Low | Add retry logic | 2-4 hours |
 
 ---
 
 ## Conclusion
 
-This codebase was clearly built as a rapid prototype. That's fine for proving a concept, but it's not production-ready. The security issues around token handling are the most pressing—they should be addressed before any public deployment.
+This codebase is a reasonable MVP with solid fundamentals. The architecture is clean, TypeScript usage is good, and there's clear evidence of security awareness. The recent commit (72442a6) shows attention to critical issues.
 
-For junior engineers reading this: the issues above aren't about being "perfect"—they're about understanding that every line of code has consequences. Tests prevent regressions. Error handling prevents confused users. Security practices prevent breaches. Take the time to do things properly from the start; technical debt compounds faster than you think.
+**Key Strengths:**
+- Architecture and organization
+- Security-conscious approach to OAuth
+- Race condition handling in SDK loading
+- Test infrastructure for utilities
+
+**Key Weaknesses:**
+- Missing critical test coverage for components
+- Deprecated OAuth Implicit Flow
+- No token refresh mechanism
+- One critical bug in SpotifyContext
+
+**Priority Action:** Fix the SpotifyContext dependency bug immediately, then focus on OAuth modernization and component test coverage in the next sprint.
+
+For junior engineers: focus on the patterns here around async state management, race conditions, and token handling. These are common challenges in modern frontend development, and this codebase demonstrates both good solutions (the SDK loading callback queue) and common pitfalls (the dependency array bug).

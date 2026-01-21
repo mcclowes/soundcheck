@@ -12,12 +12,13 @@ type SpotifyProviderProps = {
 
 export function SpotifyProvider({ children, accessToken }: SpotifyProviderProps) {
   const spotify = useSpotifyPlayer();
+  const { setAccessToken } = spotify;
 
   useEffect(() => {
     if (accessToken) {
-      spotify.setAccessToken(accessToken);
+      setAccessToken(accessToken);
     }
-  }, [accessToken, spotify]);
+  }, [accessToken, setAccessToken]);
 
   return <SpotifyContext.Provider value={spotify}>{children}</SpotifyContext.Provider>;
 }

@@ -7,6 +7,21 @@ export function parseIntSafe(value: string, fallback: number = 0): number {
 }
 
 /**
+ * Safely parse a boolean from various input formats.
+ * Handles strings ("true", "True", "TRUE", "1"), booleans, and numbers.
+ * Useful for parsing AI tool parameters which may return inconsistent formats.
+ */
+export function parseBooleanParam(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const lower = value.toLowerCase().trim();
+    return lower === "true" || lower === "1" || lower === "yes";
+  }
+  return false;
+}
+
+/**
  * Parse Spotify OAuth token data from URL hash fragment.
  * Returns null if no valid token is found.
  */
